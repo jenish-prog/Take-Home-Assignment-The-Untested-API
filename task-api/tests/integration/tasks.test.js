@@ -7,6 +7,16 @@ describe('Tasks API Integration Tests', () => {
     taskService._reset();
   });
 
+  describe('GET /', () => {
+    test('returns health check status and API endpoints', async () => {
+      const res = await request(app).get('/');
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('healthy');
+      expect(res.body.message).toBe('Task Manager API is running');
+      expect(res.body.endpoints).toBeDefined();
+    });
+  });
+
   describe('GET /tasks', () => {
     test('returns empty list when no tasks exist', async () => {
       const res = await request(app).get('/tasks');
