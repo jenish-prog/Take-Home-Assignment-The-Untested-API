@@ -8,12 +8,38 @@ const findById = (id) => tasks.find((t) => t.id === id);
 
 const getByStatus = (status) => tasks.filter((t) => t.status === status);
 
+const queryTasks = ({ status, priority, assignee, search, page, limit } = {}) => {
+  let list = tasks;
+
+  if (status) {
+    list = list.filter((t) => t.status === status);
+  }
+  if (priority) {
+    list = list.filter((t) => t.priority === priority);
+  }
+  if (assignee) {
+    list = list.filter((t) => t.assignee && t.assignee.toLowerCase() === assignee.toLowerCase());
+  }
+  if (search) {
+    const term = search.toLowerCase();
+    list = list.filter((t) =>
+      (t.title && t.title.toLowerCase().includes(term)) ||
+      (t.description && t.description.toLowerCase().includes(term))
+    );
+  }
+
+  if (page !== undefined || limit !== undefined) {
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const offset = (pageNum - 1) * limitNum;
+    return list.slice(offset, offset + limitNum);
+  }
+
+  return list;
+};
+
 const getPaginated = (page = 1, limit = 10, status) => {
-  const list = status ? getByStatus(status) : tasks;
-  const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.max(1, parseInt(limit, 10) || 10);
-  const offset = (pageNum - 1) * limitNum;
-  return list.slice(offset, offset + limitNum);
+  return queryTasks({ page, limit, status });
 };
 
 const getStats = () => {
@@ -52,7 +78,22 @@ const update = (id, fields) => {
   if (index === -1) return null;
 
   const { id: _, createdAt: __, ...allowedFields } = fields;
-  const updated = { ...tasks[index], ...allowedFields };
+  const current = tasks[index];
+
+  let completedAt = current.completedAt;
+  if (allowedFields.status !== undefined) {
+    if (allowedFields.status === 'done' && current.status !== 'done') {
+      completedAt = allowedFields.completedAt || new Date().toISOString();
+    } else if (allowedFields.status !== 'done' && !allowedFields.completedAt) {
+      completedAt = null;
+    }
+  }
+
+  const updated = {
+    ...current,
+    ...allowedFields,
+    completedAt: allowedFields.completedAt !== undefined ? allowedFields.completedAt : completedAt,
+  };
   tasks[index] = updated;
   return updated;
 };
@@ -100,6 +141,7 @@ module.exports = {
   getAll,
   findById,
   getByStatus,
+  queryTasks,
   getPaginated,
   getStats,
   create,
@@ -109,4 +151,5 @@ module.exports = {
   assignTask,
   _reset,
 };
+
 

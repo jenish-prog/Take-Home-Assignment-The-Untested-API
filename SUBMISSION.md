@@ -3,12 +3,12 @@
 ## Summary of Deliverables
 
 1. **Comprehensive Test Suite & High Coverage:**
-   - **86 automated tests** implemented across unit and integration suites using Jest and Supertest.
-   - **98.8% Statement Coverage**, **99.15% Branch Coverage** (surpassing the 80% requirement).
+   - **98 automated tests** implemented across unit and integration suites using Jest and Supertest.
+   - **98.02% Statement Coverage**, **96.73% Branch Coverage** (surpassing the 80% requirement).
    - Test suites:
      - [`task-api/tests/unit/validators.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/validators.test.js): Schema validation, type checks, whitespace trimming, empty string/invalid type rejections, and non-object body checks.
      - [`task-api/tests/unit/taskService.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/taskService.test.js): Business logic, CRUD operations, pagination offsets, combined status pagination, exact status filtering, priority preservation, and assignment.
-     - [`task-api/tests/integration/tasks.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/integration/tasks.test.js): End-to-end HTTP route tests with Supertest covering happy paths, edge cases, combined filtering/pagination, and negative scenarios for every endpoint.
+     - [`task-api/tests/integration/tasks.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/integration/tasks.test.js): End-to-end HTTP route tests with Supertest covering happy paths, edge cases, combined filtering/pagination, single task fetching (`GET /tasks/:id`), partial updates (`PATCH /tasks/:id`), and negative scenarios for every endpoint.
 
 ### Test Coverage Output
 
@@ -16,19 +16,19 @@
 -----------------|---------|----------|---------|---------|-------------------
 File             | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 -----------------|---------|----------|---------|---------|-------------------
-All files        |    98.8 |    99.15 |   96.66 |    98.7 |                   
- src             |   84.61 |       75 |      50 |   84.61 |                   
-  app.js         |   84.61 |       75 |      50 |   84.61 | 17-18             
+All files        |   98.02 |    96.73 |   97.36 |   97.84 |                   
+ src             |   76.47 |    77.77 |   66.66 |   76.47 | 25-26,32-33       
+  app.js         |   76.47 |    77.77 |   66.66 |   76.47 |                   
  src/routes      |     100 |      100 |     100 |     100 |                   
   tasks.js       |     100 |      100 |     100 |     100 |                   
- src/services    |     100 |      100 |     100 |     100 |                   
-  taskService.js |     100 |      100 |     100 |     100 |                   
+ src/services    |     100 |    94.91 |     100 |     100 |                   
+  taskService.js |     100 |    94.91 |     100 |     100 | 11,87-95          
  src/utils       |     100 |      100 |     100 |     100 |                   
   validators.js  |     100 |      100 |     100 |     100 |                   
 -----------------|---------|----------|---------|---------|-------------------
 
 Test Suites: 3 passed, 3 total
-Tests:       86 passed, 86 total
+Tests:       98 passed, 98 total
 ```
 
 ---
@@ -47,7 +47,7 @@ Key defects documented:
 
 ---
 
-## Part B: Fixes Implemented
+## Part B: Fixes & Hardening Implemented
 
 1. **Fixed Pagination Off-by-One (`taskService.js`):**
    Changed `offset = page * limit` to `(Math.max(1, page) - 1) * limit`, properly indexing page 1 to start from item index 0.
@@ -58,11 +58,20 @@ Key defects documented:
 4. **Protected Immutable Fields (`taskService.js`):**
    Filtered out `id` and `createdAt` in `update` so callers cannot overwrite system-generated identifiers or timestamps.
 5. **Combined Status Filtering and Pagination (`routes/tasks.js` & `taskService.js`):**
-   Updated `getPaginated` to accept an optional `status` parameter and updated `GET /tasks` route handler to paginate filtered results when both `status` and `page`/`limit` are supplied.
-6. **Aligned Documentation and Schemas (`README.md`):**
-   Updated `README.md` status enum to `todo | in_progress | done`, added `assignee` to task schema shape, and fixed sample requests.
-7. **Hardened Request Validation (`validators.js`):**
-   Added strict type and non-empty checks for `status`, `priority`, and `dueDate` across creation and update requests.
+   Updated `getPaginated` and `queryTasks` to combine status filtering with pagination.
+6. **Added Individual Task Retrieval (`GET /tasks/:id`):**
+   Implemented `GET /tasks/:id` to fetch tasks by ID with 200/404 responses.
+7. **Added General Partial Updates (`PATCH /tasks/:id`):**
+   Supported partial updates across arbitrary fields on existing tasks with validation.
+8. **Automated `completedAt` on Updates (`taskService.js`):**
+   Whenever a task's status transitions to `'done'` via `PUT` or `PATCH`, `completedAt` is automatically populated with the current ISO timestamp, and cleared if reopened.
+9. **Handled Malformed JSON Payloads (`app.js`):**
+   Invalid JSON requests now return HTTP `400 Bad Request` (`Malformed JSON payload`) instead of unhandled `500 Internal Server Error`.
+10. **Prevented `/tasks/stats` Route Collisions:**
+    Mounted `router.all('/stats')` returning `405 Method Not Allowed` for non-GET methods to prevent collision with parameterized `/:id` handlers.
+11. **Supported Multi-Filter Search (`GET /tasks`):**
+    Added query support for `?priority=`, `?assignee=`, and text search `?search=`.
+
 
 ---
 

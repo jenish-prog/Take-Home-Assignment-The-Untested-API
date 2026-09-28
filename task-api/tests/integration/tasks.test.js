@@ -79,6 +79,43 @@ describe('Tasks API Integration Tests', () => {
       expect(res.body[1].title).toBe('Task 3');
     });
 
+    test('filters tasks by priority', async () => {
+      taskService.create({ title: 'Task Low', priority: 'low' });
+      taskService.create({ title: 'Task High', priority: 'high' });
+
+      const res = await request(app).get('/tasks?priority=high');
+      expect(res.status).toBe(200);
+      expect(res.body.length).toBe(1);
+      expect(res.body[0].title).toBe('Task High');
+    });
+
+    test('filters tasks by assignee', async () => {
+      const t1 = taskService.create({ title: 'Task Alice' });
+      const t2 = taskService.create({ title: 'Task Bob' });
+      taskService.assignTask(t1.id, 'Alice');
+      taskService.assignTask(t2.id, 'Bob');
+
+      const res = await request(app).get('/tasks?assignee=alice');
+      expect(res.status).toBe(200);
+      expect(res.body.length).toBe(1);
+      expect(res.body[0].assignee).toBe('Alice');
+    });
+
+    test('filters tasks by text search across title and description', async () => {
+      taskService.create({ title: 'Fix database bug', description: 'Important backend task' });
+      taskService.create({ title: 'Update documentation', description: 'Write API guide' });
+
+      const resTitle = await request(app).get('/tasks?search=database');
+      expect(resTitle.status).toBe(200);
+      expect(resTitle.body.length).toBe(1);
+      expect(resTitle.body[0].title).toBe('Fix database bug');
+
+      const resDesc = await request(app).get('/tasks?search=backend');
+      expect(resDesc.status).toBe(200);
+      expect(resDesc.body.length).toBe(1);
+      expect(resDesc.body[0].title).toBe('Fix database bug');
+    });
+
     test('supports pagination with only page or only limit provided', async () => {
       for (let i = 1; i <= 3; i++) {
         taskService.create({ title: `Task ${i}` });
@@ -91,6 +128,23 @@ describe('Tasks API Integration Tests', () => {
       const resOnlyLimit = await request(app).get('/tasks?limit=1');
       expect(resOnlyLimit.status).toBe(200);
       expect(resOnlyLimit.body.length).toBe(1);
+    });
+  });
+
+  describe('GET /tasks/:id', () => {
+    test('fetches a single task by ID and returns 200', async () => {
+      const created = taskService.create({ title: 'Fetch Me', priority: 'high' });
+      const res = await request(app).get(`/tasks/${created.id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe(created.id);
+      expect(res.body.title).toBe('Fetch Me');
+    });
+
+    test('returns 404 when fetching a non-existent task ID', async () => {
+      const res = await request(app).get('/tasks/non-existent-uuid');
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Task not found');
     });
   });
 
@@ -176,17 +230,14 @@ describe('Tasks API Integration Tests', () => {
       expect(res.body.error).toBe('dueDate must be a valid ISO date string');
     });
 
-    test('returns 500 if malformed JSON is sent', async () => {
-      // Suppress console.error in test output for expected 500
-      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    test('returns 400 if malformed JSON is sent', async () => {
       const res = await request(app)
         .post('/tasks')
         .set('Content-Type', 'application/json')
         .send('{"malformed:');
 
-      expect(res.status).toBe(500);
-      expect(res.body.error).toBe('Internal server error');
-      spy.mockRestore();
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('Malformed JSON payload');
     });
   });
 
@@ -224,15 +275,73 @@ describe('Tasks API Integration Tests', () => {
       expect(res.body.error).toBe('priority must be one of: low, medium, high');
     });
 
-    test('returns 400 when update title is empty string', async () => {
-      const created = taskService.create({ title: 'Valid Task' });
+    test('automates completedAt timestamp when task status transitions to done', async () => {
+      const created = taskService.create({ title: 'Task to finish', status: 'todo' });
+      expect(created.completedAt).toBeNull();
 
       const res = await request(app)
         .put(`/tasks/${created.id}`)
-        .send({ title: '' });
+        .send({ status: 'done' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('done');
+      expect(res.body.completedAt).toBeDefined();
+      expect(new Date(res.body.completedAt).toISOString()).toBe(res.body.completedAt);
+    });
+
+    test('clears completedAt when task status transitions away from done', async () => {
+      const created = taskService.create({ title: 'Task to reopen', status: 'done' });
+      taskService.completeTask(created.id);
+
+      const res = await request(app)
+        .put(`/tasks/${created.id}`)
+        .send({ status: 'in_progress' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('in_progress');
+      expect(res.body.completedAt).toBeNull();
+    });
+
+    test('returns 400 when updating task ID is stats (collision protection)', async () => {
+      const res = await request(app)
+        .put('/tasks/stats')
+        .send({ title: 'Invalid' });
+
+      expect(res.status).toBe(405);
+    });
+  });
+
+  describe('PATCH /tasks/:id', () => {
+    test('partially updates task fields', async () => {
+      const created = taskService.create({ title: 'Initial Title', description: 'Initial Desc' });
+
+      const res = await request(app)
+        .patch(`/tasks/${created.id}`)
+        .send({ description: 'Updated Desc only' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.title).toBe('Initial Title');
+      expect(res.body.description).toBe('Updated Desc only');
+    });
+
+    test('returns 400 on invalid PATCH field', async () => {
+      const created = taskService.create({ title: 'Test' });
+
+      const res = await request(app)
+        .patch(`/tasks/${created.id}`)
+        .send({ priority: 'invalid-priority' });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('title must be a non-empty string');
+      expect(res.body.error).toBe('priority must be one of: low, medium, high');
+    });
+
+    test('returns 404 when patching non-existent task', async () => {
+      const res = await request(app)
+        .patch('/tasks/non-existent-id')
+        .send({ title: 'New' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Task not found');
     });
   });
 
@@ -251,6 +360,11 @@ describe('Tasks API Integration Tests', () => {
       const res = await request(app).delete('/tasks/non-existent-id');
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Task not found');
+    });
+
+    test('rejects DELETE on /tasks/stats with 405 Method Not Allowed', async () => {
+      const res = await request(app).delete('/tasks/stats');
+      expect(res.status).toBe(405);
     });
   });
 
@@ -287,6 +401,7 @@ describe('Tasks API Integration Tests', () => {
     test('returns correct counts including overdue tasks', async () => {
       const pastDate = new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString();
       const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString();
+
 
       taskService.create({ title: 'Task 1', status: 'todo', dueDate: pastDate });
       taskService.create({ title: 'Task 2', status: 'in_progress', dueDate: pastDate });

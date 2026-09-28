@@ -3,28 +3,26 @@ const router = express.Router();
 const taskService = require('../services/taskService');
 const { validateCreateTask, validateUpdateTask, validateAssignTask } = require('../utils/validators');
 
-router.get('/stats', (req, res) => {
-  const stats = taskService.getStats();
-  res.json(stats);
+router.all('/stats', (req, res) => {
+  if (req.method === 'GET') {
+    const stats = taskService.getStats();
+    return res.json(stats);
+  }
+  res.status(405).json({ error: `Method ${req.method} not allowed on /stats` });
 });
 
 router.get('/', (req, res) => {
-  const { status, page, limit } = req.query;
-
-  if (page !== undefined || limit !== undefined) {
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 10;
-    const tasks = taskService.getPaginated(pageNum, limitNum, status);
-    return res.json(tasks);
-  }
-
-  if (status) {
-    const tasks = taskService.getByStatus(status);
-    return res.json(tasks);
-  }
-
-  const tasks = taskService.getAll();
+  const { status, priority, assignee, search, page, limit } = req.query;
+  const tasks = taskService.queryTasks({ status, priority, assignee, search, page, limit });
   res.json(tasks);
+});
+
+router.get('/:id', (req, res) => {
+  const task = taskService.findById(req.params.id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+  res.json(task);
 });
 
 router.post('/', (req, res) => {
@@ -38,6 +36,20 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
+  const error = validateUpdateTask(req.body);
+  if (error) {
+    return res.status(400).json({ error });
+  }
+
+  const task = taskService.update(req.params.id, req.body);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  res.json(task);
+});
+
+router.patch('/:id', (req, res) => {
   const error = validateUpdateTask(req.body);
   if (error) {
     return res.status(400).json({ error });
@@ -84,4 +96,6 @@ router.patch('/:id/assign', (req, res) => {
 });
 
 module.exports = router;
+
+
 
