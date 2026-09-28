@@ -3,12 +3,12 @@
 ## Summary of Deliverables
 
 1. **Comprehensive Test Suite & High Coverage:**
-   - **98 automated tests** implemented across unit and integration suites using Jest and Supertest.
-   - **98.02% Statement Coverage**, **96.73% Branch Coverage** (surpassing the 80% requirement).
+   - **100 automated tests** implemented across unit and integration suites using Jest and Supertest.
+   - **97.37% Statement Coverage**, **96.22% Branch Coverage**, **98.06% Line Coverage** (surpassing the 80% requirement).
    - Test suites:
-     - [`task-api/tests/unit/validators.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/validators.test.js): Schema validation, type checks, whitespace trimming, empty string/invalid type rejections, and non-object body checks.
-     - [`task-api/tests/unit/taskService.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/taskService.test.js): Business logic, CRUD operations, pagination offsets, combined status pagination, exact status filtering, priority preservation, and assignment.
-     - [`task-api/tests/integration/tasks.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/integration/tasks.test.js): End-to-end HTTP route tests with Supertest covering happy paths, edge cases, combined filtering/pagination, single task fetching (`GET /tasks/:id`), partial updates (`PATCH /tasks/:id`), and negative scenarios for every endpoint.
+     - [`task-api/tests/unit/validators.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/validators.test.js): Schema validation, type checks, whitespace trimming, non-object body checks, and strict ISO-8601 calendar overflow validation.
+     - [`task-api/tests/unit/taskService.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/unit/taskService.test.js): Business logic, CRUD operations, pagination offsets, exact status filtering, priority preservation, assignment, and immutable lifecycle protection (`completedAt`, `id`, `createdAt`).
+     - [`task-api/tests/integration/tasks.test.js`](file:///Users/jenish112005gmail.com/Documents/assignment/Take-Home-Assignment-The-Untested-API/task-api/tests/integration/tasks.test.js): End-to-end HTTP route tests with Supertest covering happy paths, edge cases, combined filtering/pagination, `GET /tasks/:id`, `PATCH /tasks/:id`, CORS headers, OPTIONS preflight, and 400 Bad Request error handling.
 
 ### Test Coverage Output
 
@@ -16,19 +16,19 @@
 -----------------|---------|----------|---------|---------|-------------------
 File             | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 -----------------|---------|----------|---------|---------|-------------------
-All files        |   98.02 |    96.73 |   97.36 |   97.84 |                   
- src             |   76.47 |    77.77 |   66.66 |   76.47 | 25-26,32-33       
-  app.js         |   76.47 |    77.77 |   66.66 |   76.47 |                   
+All files        |   97.37 |    96.22 |    97.5 |   98.06 |                   
+ src             |   83.33 |    81.81 |      75 |   83.33 | 35-36,42-43       
+  app.js         |   83.33 |    81.81 |      75 |   83.33 |                   
  src/routes      |     100 |      100 |     100 |     100 |                   
   tasks.js       |     100 |      100 |     100 |     100 |                   
- src/services    |     100 |    94.91 |     100 |     100 |                   
-  taskService.js |     100 |    94.91 |     100 |     100 | 11,87-95          
- src/utils       |     100 |      100 |     100 |     100 |                   
-  validators.js  |     100 |      100 |     100 |     100 |                   
+ src/services    |     100 |    96.22 |     100 |     100 |                   
+  taskService.js |     100 |    96.22 |     100 |     100 | 11,87             
+ src/utils       |   96.42 |    97.26 |     100 |     100 |                   
+  validators.js  |   96.42 |    97.26 |     100 |     100 | 14-17             
 -----------------|---------|----------|---------|---------|-------------------
 
 Test Suites: 3 passed, 3 total
-Tests:       98 passed, 98 total
+Tests:       100 passed, 100 total
 ```
 
 ---
@@ -56,7 +56,7 @@ Key defects documented:
 3. **Exact Status Match (`taskService.js`):**
    Replaced `.includes(status)` with exact comparison `t.status === status`.
 4. **Protected Immutable Fields (`taskService.js`):**
-   Filtered out `id` and `createdAt` in `update` so callers cannot overwrite system-generated identifiers or timestamps.
+   Filtered out `id`, `createdAt`, and `completedAt` in `update` so callers cannot overwrite system-generated identifiers or lifecycle timestamps.
 5. **Combined Status Filtering and Pagination (`routes/tasks.js` & `taskService.js`):**
    Updated `getPaginated` and `queryTasks` to combine status filtering with pagination.
 6. **Added Individual Task Retrieval (`GET /tasks/:id`):**
@@ -71,6 +71,11 @@ Key defects documented:
     Mounted `router.all('/stats')` returning `405 Method Not Allowed` for non-GET methods to prevent collision with parameterized `/:id` handlers.
 11. **Supported Multi-Filter Search (`GET /tasks`):**
     Added query support for `?priority=`, `?assignee=`, and text search `?search=`.
+12. **Strict ISO-8601 & Calendar Overflow Prevention (`validators.js`):**
+    Enforced strict date validation checking for valid calendar days (e.g. rejecting non-existent dates like `2026/02/31` or `2026-02-31`).
+13. **CORS Headers & OPTIONS Preflight (`app.js`):**
+    Configured permissive CORS headers and handled OPTIONS preflight requests (`204 No Content`) for web clients.
+
 
 
 ---

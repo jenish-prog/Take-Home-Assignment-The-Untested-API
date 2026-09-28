@@ -77,14 +77,14 @@ const update = (id, fields) => {
   const index = tasks.findIndex((t) => t.id === id);
   if (index === -1) return null;
 
-  const { id: _, createdAt: __, ...allowedFields } = fields;
+  const { id: _, createdAt: __, completedAt: ___, ...allowedFields } = fields;
   const current = tasks[index];
 
   let completedAt = current.completedAt;
   if (allowedFields.status !== undefined) {
     if (allowedFields.status === 'done' && current.status !== 'done') {
-      completedAt = allowedFields.completedAt || new Date().toISOString();
-    } else if (allowedFields.status !== 'done' && !allowedFields.completedAt) {
+      completedAt = new Date().toISOString();
+    } else if (allowedFields.status !== 'done') {
       completedAt = null;
     }
   }
@@ -92,7 +92,7 @@ const update = (id, fields) => {
   const updated = {
     ...current,
     ...allowedFields,
-    completedAt: allowedFields.completedAt !== undefined ? allowedFields.completedAt : completedAt,
+    completedAt,
   };
   tasks[index] = updated;
   return updated;

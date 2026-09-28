@@ -217,7 +217,7 @@ describe('taskService', () => {
       expect(updated.id).toBe(created.id); // id preserved
     });
 
-    test('does not allow updating immutable fields (id, createdAt)', () => {
+    test('does not allow updating immutable fields (id, createdAt, completedAt)', () => {
       const created = taskService.create({ title: 'Task with ID' });
       const originalId = created.id;
       const originalCreatedAt = created.createdAt;
@@ -225,11 +225,13 @@ describe('taskService', () => {
       const updated = taskService.update(created.id, {
         id: 'new-malicious-id',
         createdAt: '1970-01-01T00:00:00.000Z',
+        completedAt: '2000-01-01T00:00:00.000Z',
         title: 'Safe Update',
       });
 
       expect(updated.id).toBe(originalId);
       expect(updated.createdAt).toBe(originalCreatedAt);
+      expect(updated.completedAt).toBeNull();
       expect(updated.title).toBe('Safe Update');
     });
 

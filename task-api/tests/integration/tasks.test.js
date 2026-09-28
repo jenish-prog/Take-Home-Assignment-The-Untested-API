@@ -497,5 +497,22 @@ describe('Tasks API Integration Tests', () => {
       expect(res.body.error).toBe('assignee must be a non-empty string');
     });
   });
+
+  describe('CORS & Preflight Requests', () => {
+    test('includes Access-Control-Allow-Origin: * on responses', async () => {
+      const res = await request(app).get('/');
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      expect(res.headers['access-control-allow-methods']).toBeDefined();
+    });
+
+    test('handles OPTIONS preflight request with 204 No Content', async () => {
+      const res = await request(app).options('/tasks');
+      expect(res.status).toBe(204);
+      expect(res.headers['access-control-allow-origin']).toBe('*');
+      expect(res.headers['access-control-allow-methods']).toContain('GET');
+      expect(res.headers['access-control-allow-methods']).toContain('POST');
+    });
+  });
 });
+
 

@@ -54,10 +54,15 @@ describe('validators', () => {
       expect(validateCreateTask({ title: 'Test', dueDate: 'not-a-date' })).toBe('dueDate must be a valid ISO date string');
       expect(validateCreateTask({ title: 'Test', dueDate: '' })).toBe('dueDate must be a valid ISO date string');
       expect(validateCreateTask({ title: 'Test', dueDate: 12345 })).toBe('dueDate must be a valid ISO date string');
+      expect(validateCreateTask({ title: 'Test', dueDate: '2026/02/31' })).toBe('dueDate must be a valid ISO date string');
+      expect(validateCreateTask({ title: 'Test', dueDate: '2026-02-31' })).toBe('dueDate must be a valid ISO date string');
+      expect(validateCreateTask({ title: 'Test', dueDate: '2026-04-31' })).toBe('dueDate must be a valid ISO date string');
     });
 
-    test('allows dueDate to be null', () => {
+    test('allows dueDate to be null or valid ISO date string', () => {
       expect(validateCreateTask({ title: 'Test', dueDate: null })).toBeNull();
+      expect(validateCreateTask({ title: 'Test', dueDate: '2026-02-28' })).toBeNull();
+      expect(validateCreateTask({ title: 'Test', dueDate: '2026-10-01T00:00:00.000Z' })).toBeNull();
     });
 
     test('allows valid status options (todo, in_progress, done)', () => {
